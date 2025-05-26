@@ -1,6 +1,7 @@
 # os and dotenv for environment variable management
 import os
 from dotenv import load_dotenv
+from pathlib import Path
 
 # API libraries
 import requests
@@ -15,6 +16,7 @@ import numpy as np
 load_dotenv()
 
 # Define constants
+base_dir = Path(__file__).parent
 api_key = os.getenv("API_KEY")
 b_number = 'ZT20'
 date_start = '2024-04-01'
@@ -128,4 +130,8 @@ def get_trademark_dataframe(b_number: str, date_start: str) -> pd.DataFrame:
     return pd.DataFrame() 
 
 df = get_trademark_dataframe(b_number, date_start)
-print(df.head())
+
+
+filename = f'trademark_data{b_number}-{date_start}.pkl'
+filepath = base_dir / filename
+df.to_pickle(filepath)
