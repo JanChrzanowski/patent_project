@@ -9,3 +9,11 @@ scikit-learn
 matplotlib
 seaborn
 python-dotenv
+rapidfuzz
+unidecode
+gruut[pl]
+
+# Other dependencies that might be useful for the project
+#E.g. for Debian-like distribution (e.g. Ubuntu, Mint, etc.) execute command:
+
+# 1. sudo apt-get install espeak-ng
