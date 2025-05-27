@@ -9,9 +9,8 @@ scikit-learn
 matplotlib
 seaborn
 python-dotenv
-rapidfuzz
-unidecode
-gruut[pl]
+jellyfish
+subprocess
 
 # Other dependencies that might be useful for the project
 #E.g. for Debian-like distribution (e.g. Ubuntu, Mint, etc.) execute command:
