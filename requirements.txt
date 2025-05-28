@@ -11,6 +11,11 @@ seaborn
 python-dotenv
 jellyfish
 subprocess
+sentence-transformers
+tf-keras
+
+# This is to use in case of GPU pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+
 
 # Other dependencies that might be useful for the project
 #E.g. for Debian-like distribution (e.g. Ubuntu, Mint, etc.) execute command:

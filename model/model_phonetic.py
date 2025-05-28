@@ -37,10 +37,13 @@ def get_polish_ipa(word):
 def phonetic_similarity(word1, word2):
 
     """ Calculate the phonetic similarity between two Polish words using their IPA representations."""
-    
+
     ipa1 = get_polish_ipa(word1)
     ipa2 = get_polish_ipa(word2)
     dist = jellyfish.levenshtein_distance(ipa1, ipa2)
     max_len = max(len(ipa1), len(ipa2))
     similarity = 1 - dist / max_len 
     return similarity, ipa1, ipa2
+
+
+print(phonetic_similarity("Plena Invest" , "Plana Invest"))
