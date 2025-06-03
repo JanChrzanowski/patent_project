@@ -1,6 +1,7 @@
 # Artificial Intelligence libraries
 from sentence_transformers import SentenceTransformer, util
 from sentence_transformers.util import cos_sim
+from sentence_transformers import InputExample
 import torch
 
 # Data processing libraries
@@ -14,11 +15,14 @@ from dotenv import load_dotenv
 from pathlib import Path
 import os
 
-#model = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2', device=device)
-# def trademark_similarity(name1, name2):
-#     embeddings = model.encode([name1, name2], convert_to_tensor=True, device=device)
-#     similarity = util.pytorch_cos_sim(embeddings[0], embeddings[1]).item()
-#     return round(similarity, 3)
+
+
+train_examples = [
+    InputExample(texts=["Adidas", "Adidos"], label=1.0),
+    InputExample(texts=["Nike", "Adidas"], label=0.0),
+    InputExample(texts=["Żywiec", "Zywiec"], label=1.0),
+    InputExample(texts=["Puma", "Tymbark"], label=0.0),
+]
 
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -31,19 +35,23 @@ def trademark_similarity(name1, name2):
     return round(similarity, 3)
 
 
-base_dir = Path(__file__).parent
-filepath = base_dir.parent / 'data' / 'trademark_dataZT20-2024-04-01.pkl'
 
-df = pd.read_pickle(filepath)
 
-word_to_compare = df.loc[0]
-trademark = word_to_compare['WordMark']
-category = [str(c) for c in word_to_compare['ClassNumbers']]
+print(trademark_similarity('Kowalski', 'Chrzanowski'))
 
-filtered_df = df[df['ClassNumbers'].apply(lambda x: any(str(c) in x for c in category))]
-list = filtered_df['WordMark'].tolist()
+# base_dir = Path(__file__).parent
+# filepath = base_dir.parent / 'data' / 'trademark_dataZT20-2024-04-01.pkl'
 
-for word in list: 
-    score = trademark_similarity(trademark, word)
-    print(f"Similarity between '{trademark}' and '{word}': {score}")
+# df = pd.read_pickle(filepath)
+
+# word_to_compare = df.loc[0]
+# trademark = word_to_compare['WordMark']
+# category = [str(c) for c in word_to_compare['ClassNumbers']]
+
+# filtered_df = df[df['ClassNumbers'].apply(lambda x: any(str(c) in x for c in category))]
+# list = filtered_df['WordMark'].tolist()
+
+# for word in list: 
+#     score = trademark_similarity(trademark, word)
+#     print(f"Similarity between '{trademark}' and '{word}': {score}")
 
