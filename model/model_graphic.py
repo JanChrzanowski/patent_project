@@ -22,7 +22,6 @@ import os
 import requests
 
 
-
 device = "cuda" if torch.cuda.is_available() else "cpu"
 model, preprocess = clip.load("ViT-B/32", device=device)
 
@@ -50,11 +49,5 @@ def compare_images_clip_cos_sim(url1, url2):
     similarity = cos_sim(embedding1, embedding2).item()
     return similarity
 
-# Przykład użycia
-url_a = "https://logowik.com/content/uploads/images/puma.jpg"
-url_b = "https://logowik.com/content/uploads/images/820_puma.jpg"
-
-similarity_score = compare_images_clip_cos_sim(url_a, url_b)
-print(f"Podobieństwo między znakami: {similarity_score:.4f}")
 
 
