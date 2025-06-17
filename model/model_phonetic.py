@@ -1,11 +1,18 @@
 # Fonetic and semantic similarity model for trademark data
 import subprocess
 import jellyfish
+import shutil
+import os
 
 
-def get_polish_ipa(word):
+def get_polish_ipa(word, espeak_path=None):
     """ Get the International Phonetic Alphabet (IPA) representation of a Polish word using eSpeak NG."""
-    espeak_path = r"C:\Program Files\eSpeak NG\espeak-ng.exe"
+    if espeak_path is None:
+        espeak_path = shutil.which("espeak-ng")
+
+    if not espeak_path or not os.path.exists(espeak_path):
+        raise FileNotFoundError("eSpeak NG executable not found. Please install it or provide the correct path.")
+    
     cmd = [espeak_path, "-v", "pl", "--ipa=3", "-q", word]
     result = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8')
     ipa = result.stdout.strip().replace("ˈ", "").replace(" ", "")
