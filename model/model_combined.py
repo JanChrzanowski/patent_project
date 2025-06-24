@@ -96,6 +96,56 @@ def get_embedding_function(api_key: str, model: str = "text-embedding-ada-002") 
     return embeddings
 
 
+def create_instruction_vectorstore(
+    embedding_function,
+    pdf_path: str = "patent_project/data/Instructions.pdf",
+    vectorstore_dir_name: str = "instructions_vectorstore"
+):
+    """
+    Creates a vectorstore from a given PDF file if it does not already exist.
+    The vectorstore is stored in a folder located one level above this script.
+    """
+    try:
+        # Determine vectorstore path
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        parent_dir = os.path.dirname(current_dir)
+        vectorstore_path = os.path.join(parent_dir, vectorstore_dir_name)
+
+        # Check if the vectorstore already exists
+        if os.path.exists(vectorstore_path) and os.path.isdir(vectorstore_path) and os.listdir(vectorstore_path):
+            logger.info(f"Vectorstore already exists at: {vectorstore_path}. Skipping creation.")
+            return
+
+        logger.info(f"Creating vectorstore at: {vectorstore_path} from PDF: {pdf_path}")
+
+        # Load the PDF
+        loader = PyPDFLoader(pdf_path)
+        pages = loader.load()
+        logger.info(f"Loaded {len(pages)} page(s) from PDF.")
+
+        # Split text into chunks
+        text_splitter = RecursiveCharacterTextSplitter(
+            chunk_size=1000,
+            chunk_overlap=200,
+            length_function=len,
+            separators=["\n\n", "\n", " "]
+        )
+        chunks = text_splitter.split_documents(pages)
+        logger.info(f"Split document into {len(chunks)} chunk(s).")
+
+        # Create vectorstore and persist it
+        vectorstore = Chroma.from_documents(
+            documents=chunks,
+            embedding=embedding_function,
+            persist_directory=vectorstore_path
+        )
+        vectorstore.persist()
+        logger.info(f"Vectorstore successfully created and persisted at: {vectorstore_path}")
+
+    except Exception as e:
+        logger.exception(f"Failed to create vectorstore: {e}")
+
+
 
 # Final setup for the script
 logger.info("Setting up the model_combined module...")
@@ -105,3 +155,10 @@ logger.info("Setting up the model_combined module...")
 # -------------------------------
 api_key = get_dotenv_variable("openai_key")
 logger.debug(f"API key loaded: {'Yes' if api_key else 'No'}")
+
+# -------------------------------
+# Create vectorstore for instructions
+# -------------------------------
+
+create_instruction_vectorstore(
+    embedding_function=get_embedding_function(api_key))
