@@ -96,9 +96,12 @@ def get_embedding_function(api_key: str, model: str = "text-embedding-ada-002") 
     return embeddings
 
 
+# -------------------------------
+# Create vectorstore from PDF instructions
+# -------------------------------
 def create_instruction_vectorstore(
     embedding_function,
-    pdf_path: str = "patent_project/data/Instructions.pdf",
+    pdf_path: str = "patent_project/data/Instructions_2.pdf",
     vectorstore_dir_name: str = "instructions_vectorstore"
 ):
     """
@@ -145,7 +148,70 @@ def create_instruction_vectorstore(
     except Exception as e:
         logger.exception(f"Failed to create vectorstore: {e}")
 
+# -------------------------------
+# Load the vectorstore from the specified directory
+# -------------------------------       
 
+def load_instruction_vectorstore(
+    embedding_function,
+    vectorstore_dir_name: str = "instructions_vectorstore"
+):
+    """
+    Loads an existing Chroma vectorstore from a folder located one level above this script.
+    Returns the vectorstore object, or None if not found or empty.
+    """
+    try:
+        # Determine full path to the vectorstore
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        parent_dir = os.path.dirname(current_dir)
+        vectorstore_path = os.path.join(parent_dir, vectorstore_dir_name)
+
+        # Check if the directory exists and contains files
+        if not os.path.exists(vectorstore_path) or not os.listdir(vectorstore_path):
+            logger.warning(f"Vectorstore directory not found or empty: {vectorstore_path}")
+            return None
+
+        # Load the vectorstore
+        vectorstore = Chroma(
+            persist_directory=vectorstore_path,
+            embedding_function=embedding_function
+        )
+        logger.info(f"Successfully loaded vectorstore from: {vectorstore_path}")
+        return vectorstore
+
+    except Exception as e:
+        logger.exception(f"Failed to load vectorstore: {e}")
+        return None
+    
+
+def query_instruction_vectorstore(query: str, embedding_function, k: int = 3):
+    """
+    Loads the instruction vectorstore and performs a similarity search for the given query.
+    
+    Parameters:
+        query (str): The query string.
+        embedding_function: Embedding function used to load the vectorstore.
+        k (int): Number of top results to return.
+    
+    Returns:
+        List of strings: The content of relevant document chunks.
+    """
+    instructionstore = load_instruction_vectorstore(embedding_function)
+
+    if instructionstore is None:
+        logger.error("Instruction vectorstore is not available.")
+        return []
+
+    try:
+        retriever = instructionstore.as_retriever(search_type="similarity")
+        relevant_chunks = retriever.invoke(query)
+        
+        logger.info(f"Retrieved {len(relevant_chunks)} relevant chunk(s) for query: \"{query}\"")
+        return [chunk.page_content for chunk in relevant_chunks[:k]]
+    
+    except Exception as e:
+        logger.exception(f"Error while querying the vectorstore: {e}")
+        return []
 
 # Final setup for the script
 logger.info("Setting up the model_combined module...")
@@ -157,8 +223,19 @@ api_key = get_dotenv_variable("openai_key")
 logger.debug(f"API key loaded: {'Yes' if api_key else 'No'}")
 
 # -------------------------------
-# Create vectorstore for instructions
+# Create vectorstore for instructions if needed
 # -------------------------------
-
 create_instruction_vectorstore(
     embedding_function=get_embedding_function(api_key))
+
+# -------------------------------
+# Test the vectorstore database with some sample queries
+# -------------------------------
+
+results = query_instruction_vectorstore(
+    "Czy znaki towarowe zawierjące imie lub nazwisko osoby fizycznej mogą być podobne? NP. Mięsny u jadzi vs. Mięsny u Olgi",
+    embedding_function = get_embedding_function(api_key)
+)
+for text in results:
+    print(text)
+
