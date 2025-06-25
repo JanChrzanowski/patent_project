@@ -12,6 +12,10 @@ from langchain.schema import Document
 from langchain_core._api.deprecation import LangChainDeprecationWarning
 from sklearn.metrics.pairwise import cosine_similarity
 
+# Phonetic and semantic similarity function
+from model_phonetic import phonetic_similarity
+from model_sense import trademark_similarity
+
 # Other modules and packages
 import os
 import tempfile
@@ -101,8 +105,8 @@ def get_embedding_function(api_key: str, model: str = "text-embedding-ada-002") 
 # -------------------------------
 def create_instruction_vectorstore(
     embedding_function,
-    pdf_path: str = "patent_project/data/Instructions_2.pdf",
-    vectorstore_dir_name: str = "instructions_vectorstore"
+    pdf_path: str ,
+    vectorstore_dir_name: str
 ):
     """
     Creates a vectorstore from a given PDF file if it does not already exist.
@@ -154,7 +158,7 @@ def create_instruction_vectorstore(
 
 def load_instruction_vectorstore(
     embedding_function,
-    vectorstore_dir_name: str = "instructions_vectorstore"
+    vectorstore_dir_name: str
 ):
     """
     Loads an existing Chroma vectorstore from a folder located one level above this script.
@@ -184,7 +188,7 @@ def load_instruction_vectorstore(
         return None
     
 
-def query_instruction_vectorstore(query: str, embedding_function, k: int = 3):
+def query_instruction_vectorstore(query: str, embedding_function, vectorstore_dir_name, k: int = 3):
     """
     Loads the instruction vectorstore and performs a similarity search for the given query.
     
@@ -196,7 +200,7 @@ def query_instruction_vectorstore(query: str, embedding_function, k: int = 3):
     Returns:
         List of strings: The content of relevant document chunks.
     """
-    instructionstore = load_instruction_vectorstore(embedding_function)
+    instructionstore = load_instruction_vectorstore(embedding_function, vectorstore_dir_name)
 
     if instructionstore is None:
         logger.error("Instruction vectorstore is not available.")
@@ -226,16 +230,105 @@ logger.debug(f"API key loaded: {'Yes' if api_key else 'No'}")
 # Create vectorstore for instructions if needed
 # -------------------------------
 create_instruction_vectorstore(
-    embedding_function=get_embedding_function(api_key))
-
-# -------------------------------
-# Test the vectorstore database with some sample queries
-# -------------------------------
-
-results = query_instruction_vectorstore(
-    "Czy znaki towarowe zawierjące imie lub nazwisko osoby fizycznej mogą być podobne? NP. Mięsny u jadzi vs. Mięsny u Olgi",
-    embedding_function = get_embedding_function(api_key)
+    embedding_function=get_embedding_function(api_key),
+    pdf_path="patent_project/data/Instructions.pdf",
+    vectorstore_dir_name="instructions_vectorstore"
 )
-for text in results:
-    print(text)
 
+# Create second vectorstore
+create_instruction_vectorstore(
+    embedding_function=get_embedding_function(api_key),
+    pdf_path="patent_project/data/Instructions_2.pdf",
+    vectorstore_dir_name="instructions_vectorstore_2"
+)
+
+# -------------------------------
+# Finalize setup
+# -------------------------------
+
+def compare_trademarks(
+    query_name: str,
+    comparison_names: list,
+    embedding_function,
+    api_key: str,
+    vectorstore_dir_name: str = "instructions_vectorstore"
+):
+    logger.info(f"Comparing trademark: '{query_name}' with {len(comparison_names)} other names.")
+
+    phonetic_results = []
+    semantic_results = []
+
+    for name in comparison_names:
+
+        try:
+            phon_sim, ipa1, ipa2 = phonetic_similarity(query_name, name)
+        except Exception as e:
+            logger.error(f"Phonetic similarity failed for {name}: {e}")
+            phon_sim, ipa1, ipa2 = None, None, None
+
+       
+        try:
+            sem_sim = trademark_similarity(query_name, name)
+        except Exception as e:
+            logger.error(f"Semantic similarity failed for {name}: {e}")
+            sem_sim = None
+
+        phonetic_results.append((name, phon_sim, ipa1, ipa2))
+        semantic_results.append((name, sem_sim))
+
+  
+    context_chunks = query_instruction_vectorstore(
+        query=f"Jak ocenić podobieństwo znaków towarowych? {query_name} vs {', '.join(comparison_names)}",
+        embedding_function=embedding_function,
+        vectorstore_dir_name=vectorstore_dir_name
+    )
+    context = "\n\n".join(context_chunks)
+
+
+    similarity_report = ""
+    for i, name in enumerate(comparison_names):
+        similarity_report += (
+            f"Porównanie z: {name}\n"
+            f"Fonetyczne podobieństwo: {phonetic_results[i][1]} (IPA: {phonetic_results[i][2]} vs {phonetic_results[i][3]})\n"
+            f"Znaczeniowe podobieństwo: {semantic_results[i][1]}\n\n"
+        )
+
+    PROMPT_TEMPLATE = f"""
+        Jesteś ekspertem w dziedzinie znaków towarowych.
+        Twoim zadaniem jest określić prawdopodobieństwo w jakim stopniu dwa znaki są do siebie podobne, fonetycznie i znaczeniowo.
+        Na wejściu otrzymujesz jeden znak towarowy oraz listę znaków do porównania.
+        Uwzględnij kontekst użytkowania znaków.
+
+        Znak towarowy: {query_name}
+        Znaki do porównania: {', '.join(comparison_names)}
+
+        Podobieństwa:
+
+        {similarity_report}
+
+        Kontekst (fragmenty z instrukcji):
+
+        {context}
+
+        Na podstawie powyższych informacji odpowiedz:
+        """
+    
+    logger.info("Prompt prepared. Sending to LLM...")
+
+    
+    chat = connect_to_model(api_key)
+    response = chat.invoke(PROMPT_TEMPLATE)
+
+    logger.info("LLM response received.")
+    return response.content
+
+
+result = compare_trademarks(
+    query_name="Mięsny u Olgi",
+    comparison_names=["Mięsny u Zosi", "Mięsny u Jadzi", "Mięsny u Zdzisia"],
+    embedding_function=get_embedding_function(api_key),
+    api_key=api_key,
+    vectorstore_dir_name="instructions_vectorstore"
+)
+
+print(result)
